@@ -1,0 +1,132 @@
+version: '3.8'
+
+#services:
+# elasticsearch:
+#  build:
+#   context: ./elasticsearch
+#  container_name: elasticsearch
+#  hostname: elasticsearch
+#
+#  environment:
+#   - bootstrap.memory_lock=true
+#   - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#   - discovery.type=single-node
+#  labels:
+#   co.elastic.logs/module: elasticsearch
+#  volumes:
+#   - es_data:/usr/share/elasticsearch/data
+#  ports:
+#   - "9200:9200"
+#
+# kibana:
+#  image:
+#   docker.elastic.co/kibana/kibana:7.17.2
+#  container_name: kibana
+#  ports:
+#   - "5601:5601"
+#  depends_on:
+#   - elasticsearch
+#
+# filebeat:
+#
+#  build:
+#   context: ./filebeat
+#  depends_on:
+#   - elasticsearch
+#  volumes:
+#   - /var/lib/docker/containers:/var/lib/docker/containers:ro
+#   - /var/run/docker.sock:/var/run/docker.sock:ro
+#
+#
+#
+#volumes:
+# es_data:
+
+
+services:
+
+  elasticsearch:
+    container_name: elasticsearch
+    hostname: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.2
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - discovery.type=single-node
+    labels:
+      co.elastic.logs/module: elasticsearch
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - stack
+
+  kibana:
+    container_name: kibana
+    hostname: kibana
+    image: docker.elastic.co/kibana/kibana:7.17.2
+    labels:
+      co.elastic.logs/module: kibana
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    networks:
+      - stack
+
+
+  logstash:
+    container_name: logstash
+    hostname: logstash
+    build:
+      context: ./logstash
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5044:5044"
+    networks:
+      - stack
+  filebeat:
+    container_name: filebeat
+    hostname: filebeat
+    user: root
+    build:
+      context: ./filebeat
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    entrypoint: "filebeat -e -strict.perms=false"
+    depends_on:
+      - elasticsearch
+      - logstash
+      - kibana
+    restart: on-failure
+    networks:
+      - stack
+
+
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+    ports:
+      - "5432:5432"
+    command: ["postgres", "-c", "log_statement=all", "-c", "log_min_duration_statement=10"]
+    networks:
+      - stack
+
+volumes:
+  esdata1:
+    driver: local
+  postgres_data:
+
+networks:
+  stack:

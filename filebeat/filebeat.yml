@@ -1,0 +1,19 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      templates:
+        - condition.or:
+            - contains.docker.container.name: "postgres"
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+#output.console:
+#  pretty: true
+
+setup.kibana:
+  host: "http://kibana:5601"
